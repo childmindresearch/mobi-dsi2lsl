@@ -329,6 +329,8 @@ int StartUp( int argc, const char * argv[], DSI_Headset * headsetOut, int * help
   const char * montage    = GetStringOpt(  argc, argv, "montage",   "m" );
   const char * reference  = GetStringOpt(  argc, argv, "reference", "r" );
   int          verbosity  = GetIntegerOpt( argc, argv, "verbosity", "v", 2 );
+  int          accelRate  = GetIntegerOpt( argc, argv, "accel-rate", NULL, 30 );
+  int          sampleRate = GetIntegerOpt( argc, argv, "sample-rate", NULL, 0 );
   if( headsetOut ) *headsetOut = NULL;
   if( helpOut ) *helpOut = help;
   if( help ) return 0;
@@ -352,6 +354,46 @@ int StartUp( int argc, const char * argv[], DSI_Headset * headsetOut, int * help
    * DSISerialPort).
    */
   DSI_Headset_Connect( h, serialPort ); CHECK
+
+  /*
+   * Optionally change the EEG sampling rate. Rates other than the headset
+   * default (300 Hz) require the "Variable Acquisition Rate" feature to be
+   * unlocked; if it is not, we warn and keep streaming at the current rate.
+   * The headset's current filter mode is preserved.
+   */
+  if( sampleRate > 0 ){
+    double currentRate = DSI_Headset_GetSamplingRate( h ); CHECK
+    if( (int)( currentRate + 0.5 ) != sampleRate ){
+      if( DSI_Headset_GetFeatureAvailability( h, "Variable Acquisition Rate" ) == 1 ){
+        int filterMode = DSI_Headset_GetFilterMode( h ); CHECK
+        if( filterMode < 0 ) filterMode = 0;
+        DSI_Headset_ConfigureADC( h, (unsigned int) sampleRate, (unsigned int) filterMode ); CHECK
+      } else {
+        fprintf( stderr, "WARNING: headset does not report the \"Variable Acquisition Rate\" feature as available; "
+                         "cannot change sampling rate to %d Hz.\n", sampleRate );
+      }
+      CHECK
+    }
+    fprintf( stderr, "Sampling rate: requested %d Hz, headset reports %.1f Hz\n",
+             sampleRate, DSI_Headset_GetSamplingRate( h ) ); CHECK
+  }
+
+  /*
+   * Enable the 3D accelerometer. Its rate defaults to 0 (off), in which case the
+   * ACCX/ACCY/ACCZ/ACCT channels just stream zeros. Must be set before
+   * DSI_Headset_ChooseChannels (same order as AccelDemo in the DSI API demo.c).
+   * The DSI API docs state the supported range is up to 30 Hz.
+   */
+  if( accelRate > 0 ){
+    if( DSI_Headset_GetFeatureAvailability( h, "Accelerometer" ) == 1 ){
+      DSI_Headset_SetAccelerometerRate( h, (unsigned int) accelRate ); CHECK
+      fprintf( stderr, "Accelerometer rate: requested %d Hz, headset reports %.1f Hz\n",
+               accelRate, DSI_Headset_GetAccelerometerRate( h ) ); CHECK
+    } else {
+      fprintf( stderr, "WARNING: headset does not report the \"Accelerometer\" feature as available; ACC channels will be zero.\n" );
+    }
+    CHECK
+  }
 
   /*
    * Sets up the montage according to strings supplied in the --montage and
@@ -495,6 +537,16 @@ int GlobalHelp( int argc, const char * argv[] )
             "       The higher the number, the more messages the headset will send to the\n"
             "       registered `DSI_MessageCallback` function, and hence to the console\n"
             "       (and the more low-level they will tend to be)\n"
+            "\n"
+            "  --sample-rate\n"
+            "       EEG sampling rate in Hz (e.g. 300 or 600). If omitted, the headset's\n"
+            "       current rate is used (normally 300). Rates other than 300 require the\n"
+            "       Variable Acquisition Rate feature to be unlocked on the headset.\n"
+            "\n"
+            "  --accel-rate\n"
+            "       Accelerometer sampling rate in Hz (default 30, the documented maximum).\n"
+            "       Use 0 to leave the accelerometer off. Only works if the headset has the\n"
+            "       Accelerometer feature unlocked.\n"
             "\n"
             "  --lsl-stream-name\n"
             "       The name of the LSL outlet that will be created to stream the samples\n"

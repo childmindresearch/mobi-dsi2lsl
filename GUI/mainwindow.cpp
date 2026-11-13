@@ -12,6 +12,7 @@
 #include <QPushButton>
 #include <QCheckBox>
 #include <QByteArray>
+#include <QIntValidator>
 #include <iostream>
 
 #ifndef WIN32
@@ -34,6 +35,11 @@ const QString lslStream = "--lsl-stream-name=";
 const QString montage = "--montage=";
 const QString reference = "--reference=";
 const QString defaultValule = "(use default)";
+const QString sampleRateArg = "--sample-rate=";
+const QString accelRateArg = "--accel-rate=";
+const QString defaultSampleRate = "600"; /* Used when the sampling rate field is left empty */
+const QString accelOnRate = "30";        /* Accelerometer rate (Hz) when the checkbox is checked */
+const QString accelOffRate = "0";        /* 0 = accelerometer off */
 
 
 /**
@@ -59,6 +65,9 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->nameLineEdit->setText("WS-default");
     ui->montageLineEdit->setText("(use default)");
     ui->referenceLineEdit->setText("(use default)");
+    ui->sampleRateLineEdit->setText(defaultSampleRate);
+    ui->sampleRateLineEdit->setValidator(new QIntValidator(1, 100000, this)); /* digits only */
+    ui->accelCheckBox->setChecked(true);
     ui->buttonBox->button(QDialogButtonBox::Ok)->setText("Start");
     ui->buttonBox->button(QDialogButtonBox::Cancel)->setText("Stop");
     ui->statusBar->setVisible(false);
@@ -151,6 +160,9 @@ void MainWindow::on_buttonBox_accepted()
     this->counter = 0;
     this->timerId = this->startTimer(1000);
     this->ui->ZCheckBox->setEnabled(false); /* Enable the ZCheckBox */
+    /* Rate settings only take effect at startup, so lock them while streaming */
+    this->ui->sampleRateLineEdit->setEnabled(false);
+    this->ui->accelCheckBox->setEnabled(false);
 }
 
 /** 
@@ -206,6 +218,8 @@ void MainWindow::on_buttonBox_rejected()
         this->counter = 0;
         this->ui->statusBar->setVisible(false);
         this->ui->ZCheckBox->setEnabled(true); /* Enable the ZCheckBox */
+        this->ui->sampleRateLineEdit->setEnabled(true);
+        this->ui->accelCheckBox->setEnabled(true);
     }
 
 }
@@ -227,6 +241,15 @@ QStringList MainWindow::parseArguments()
 
     if(ui->referenceLineEdit->text().simplified().compare(defaultValule))
         arguments << (reference+this->ui->referenceLineEdit->text().simplified()).toStdString().c_str();
+
+    /* Sampling rate: fall back to 600 Hz if the field is empty */
+    QString sampleRate = this->ui->sampleRateLineEdit->text().simplified();
+    if(sampleRate.isEmpty())
+        sampleRate = defaultSampleRate;
+    arguments << (sampleRateArg + sampleRate);
+
+    /* Accelerometer: on (30 Hz) if checked, off (0) otherwise */
+    arguments << (accelRateArg + (this->ui->accelCheckBox->isChecked() ? accelOnRate : accelOffRate));
 
     return arguments;
 }

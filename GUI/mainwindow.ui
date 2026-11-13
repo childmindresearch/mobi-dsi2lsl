@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>428</width>
-    <height>270</height>
+    <height>330</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -107,6 +107,36 @@
      <widget class="QLabel" name="referenceLabel">
       <property name="text">
        <string>Reference</string>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="1">
+     <widget class="QLabel" name="sampleRateLabel">
+      <property name="text">
+       <string>Sampling Rate (Hz)</string>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="2">
+     <widget class="QLineEdit" name="sampleRateLineEdit">
+      <property name="toolTip">
+       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;EEG sampling rate in Hz. Defaults to 600 if left empty. Rates other than 300 Hz require the Variable Acquisition Rate feature to be unlocked on the headset; otherwise the headset keeps its current rate (see console).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      </property>
+      <property name="placeholderText">
+       <string>600</string>
+      </property>
+     </widget>
+    </item>
+    <item row="6" column="1" colspan="2">
+     <widget class="QCheckBox" name="accelCheckBox">
+      <property name="toolTip">
+       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enable the on-board 3D accelerometer (30 Hz). When unchecked, the accelerometer channels stream zeros.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      </property>
+      <property name="text">
+       <string>On-board accelerometer enabled</string>
+      </property>
+      <property name="checked">
+       <bool>true</bool>
       </property>
      </widget>
     </item>
