@@ -31,7 +31,7 @@ The accelerometer updates at up to 30 Hz but is sent on every EEG sample, so eac
 | What | Where to get it |
 |---|---|
 | Visual Studio 2022 (Community is fine) with the **Desktop development with C++** workload | https://visualstudio.microsoft.com/downloads/ (includes CMake) |
-| Qt 5.15.2 with the **MSVC 2019 64-bit** component | https://www.qt.io/download-dev |
+| Qt 6 with an **MSVC 64-bit** component (e.g. `msvc2022_64`), or Qt 5.15.2 `msvc2019_64` | https://www.qt.io/download-dev |
 | liblsl 1.16.2, **Win_amd64** build | https://github.com/sccn/liblsl/releases |
 | DSI API v1.18.2 | https://wearablesensing.com/files/DSI-API_Current.zip |
 | Git for Windows | https://git-scm.com/download/win |
@@ -75,12 +75,13 @@ The folder should contain `DSI.h`, `DSI_API_Loader.c` and `libDSI-Windows-x86_64
 ### 4. Find Qt and liblsl
 
 ```bat
-where /r C:\ Qt5Config.cmake
+where /r C:\Qt Qt6Config.cmake
+where /r C:\Qt Qt5Config.cmake
 where /r %USERPROFILE% LSLConfig.cmake
 where /r %USERPROFILE% lsl.dll
 ```
 
-- **Qt:** use the result that contains `msvc2019_64`, not `mingw`, e.g. `C:\Qt\5.15.2\msvc2019_64\lib\cmake\Qt5`.
+- **Qt:** use a result whose path contains `msvc` (e.g. `msvc2022_64`), not `mingw`. You need the **kit folder**: the part of the path before `\lib\cmake`, e.g. `C:\Qt\6.8.0\msvc2022_64`. Qt 6 is used if both are installed.
 - **liblsl:** e.g. `...\liblsl-1.16.2-Win_amd64\lib\cmake\LSL` and `...\liblsl-1.16.2-Win_amd64\bin\lsl.dll`.
 - **Nothing found for liblsl:** search `C:\` instead of `%USERPROFILE%`.
 
@@ -90,11 +91,11 @@ Replace the paths with what you found in step 4:
 
 ```bat
 set LSLCFG=C:\path\to\liblsl-1.16.2-Win_amd64\lib\cmake\LSL
-set QTCFG=C:\Qt\5.15.2\msvc2019_64\lib\cmake\Qt5
+set QTKIT=C:\Qt\6.8.0\msvc2022_64
 set LSLDLL=C:\path\to\liblsl-1.16.2-Win_amd64\bin\lsl.dll
-set QTBIN=C:\Qt\5.15.2\msvc2019_64\bin
+set QTBIN=%QTKIT%\bin
 
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DLSL_DIR="%LSLCFG%" -DQt5_DIR="%QTCFG%"
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DLSL_DIR="%LSLCFG%" -DCMAKE_PREFIX_PATH="%QTKIT%"
 cmake --build build --config Release
 ```
 
@@ -117,9 +118,9 @@ dsi2lsl.exe
 dsi2lslGUI.exe
 libDSI.dll
 lsl.dll
-Qt5Core.dll
-Qt5Gui.dll
-Qt5Widgets.dll
+Qt6Core.dll       (Qt5Core.dll with Qt 5)
+Qt6Gui.dll
+Qt6Widgets.dll
 ```
 
 To run the programs on another computer, copy this whole folder.
@@ -171,11 +172,11 @@ If the accelerometer channels are missing from the stream, add `ACCX,ACCY,ACCZ` 
 
 | Problem | Fix |
 |---|---|
-| `Could not find LSL` / `Could not find Qt5` during configure | `LSLCFG` or `QTCFG` must be the folder that directly contains `LSLConfig.cmake` or `Qt5Config.cmake`. |
+| `Could not find LSL` / `Could not find a package configuration file provided by "QT"` during configure | `LSLCFG` must be the folder that directly contains `LSLConfig.cmake`; `QTKIT` must be the Qt kit folder, e.g. `C:\Qt\6.8.0\msvc2022_64`. Delete the `build` folder before re-running configure. |
 | `failed to load dynamic library "libDSI.dll"` | Copy and rename the DSI DLL into `build\Release` (step 6). |
 | `lsl.dll was not found` | Copy `lsl.dll` into `build\Release`. |
 | GUI says the `windows` platform plugin is missing | Run `windeployqt` again (step 6). |
-| Error `0xc000007b` | A 32-bit DLL got mixed in. Use the `Win_amd64` liblsl, the `x86_64` DSI DLL and `msvc2019_64` Qt. |
+| Error `0xc000007b` | A 32-bit DLL got mixed in. Use the `Win_amd64` liblsl, the `x86_64` DSI DLL and a 64-bit `msvc` Qt kit. |
 | Rate reports 300 Hz / accelerometer warning | The feature is locked on the headset. Contact Wearable Sensing. |
 
 ## Alternative: MinGW build

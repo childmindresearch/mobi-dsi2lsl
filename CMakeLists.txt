@@ -32,7 +32,11 @@ SET(LSL-GUI "${CMAKE_CURRENT_SOURCE_DIR}/GUI")
 # --------------------------------------------------------------------------------------------------------------------------
 
 # finds required packages
-find_package(Qt5 REQUIRED COMPONENTS Widgets)
+# Works with Qt 6 or Qt 5 (prefers Qt 6). Point CMake at it with
+# -DCMAKE_PREFIX_PATH=C:/Qt/<version>/<kit>  (e.g. C:/Qt/6.8.0/msvc2022_64)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
+message(STATUS "Using Qt ${QT_VERSION}")
 find_package(Threads REQUIRED)
 
 # creates the GUI .exe
@@ -65,12 +69,12 @@ target_include_directories(dsi2lsl
 # the dependencies for the GUI
 target_link_libraries(${PROJECT_NAME}
 	PRIVATE
-	Qt5::Widgets
+	Qt${QT_VERSION_MAJOR}::Widgets
 	Threads::Threads
 	LSL::lsl
 )
 
-target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_14)
+target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
 
 installLSLApp(${PROJECT_NAME})
 
