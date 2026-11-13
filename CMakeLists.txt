@@ -26,7 +26,14 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>)
 
 # Sets variables for the directories used
 # --------------------UPDATE base on your naming conventions, or updating version-------------------------------------------
-SET(DSI-API "${CMAKE_CURRENT_SOURCE_DIR}/DSI_API_v1.18.2_04102023")
+# Folder containing DSI.h, DSI_API_Loader.c and the libDSI DLL. Override with
+#   -DDSI_API_DIR=C:/path/to/DSI_API_vX.Y.Z_DATE
+set(DSI_API_DIR "${CMAKE_CURRENT_SOURCE_DIR}/DSI_API_v1.18.2_04102023" CACHE PATH "Path to the DSI API folder")
+SET(DSI-API "${DSI_API_DIR}")
+if(NOT EXISTS "${DSI-API}/DSI.h" OR NOT EXISTS "${DSI-API}/DSI_API_Loader.c")
+	message(FATAL_ERROR "DSI API not found in '${DSI-API}'. Set -DDSI_API_DIR to the folder containing DSI.h and DSI_API_Loader.c")
+endif()
+message(STATUS "Using DSI API in ${DSI-API}")
 SET(LSL-CLI "${CMAKE_CURRENT_SOURCE_DIR}/CLI")
 SET(LSL-GUI "${CMAKE_CURRENT_SOURCE_DIR}/GUI")
 # --------------------------------------------------------------------------------------------------------------------------

@@ -70,7 +70,7 @@ tar -xf DSI-API.zip
 dir DSI_API_v1.18.2_04102023
 ```
 
-The folder should contain `DSI.h`, `DSI_API_Loader.c` and `libDSI-Windows-x86_64.dll`. If the zip has a newer version with a different folder name, update the `DSI-API` path in [CMakeLists.txt](CMakeLists.txt).
+The folder should contain `DSI.h`, `DSI_API_Loader.c` and `libDSI-Windows-x86_64.dll`. If you use a different API version (different folder name), add `-DDSI_API_DIR=C:\path\to\that\folder` to the configure command in step 5, and copy that version's DLL in step 6.
 
 ### 4. Find Qt and liblsl
 
