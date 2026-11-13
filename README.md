@@ -1,151 +1,118 @@
-# Wearable Sensing LSL (dsi2lsl)
+# mobi-dsi2lsl
 
----
+Streams data from a Wearable Sensing DSI headset to [Lab Streaming Layer (LSL)](https://labstreaminglayer.org).
 
-## Build from Source Guide
-This documentation last updated July, 2025.
+This is a fork of [labstreaminglayer/App-WearableSensing](https://github.com/labstreaminglayer/App-WearableSensing) (branch `WearableSensing-master`) maintained by the Child Mind Institute. It builds two Windows programs:
+
+- **`dsi2lsl.exe`**: the command-line streamer.
+- **`dsi2lslGUI.exe`**: a GUI that runs `dsi2lsl.exe` in the background with the settings you enter.
+
 > [!IMPORTANT]
-> This build guide has only been tested using Windows.
+> Windows only. Last updated November 2026.
 
-This program will only work on Windows. 
+## Changes from upstream
 
-This guide provides instructions for locally compiling and running the Wearable Sensing dsi2lsl plugin. Following these steps will allow you to set up the necessary environment and dependencies to build two executable files from the source code:
+- **Accelerometer enabled.** Upstream never turned on the headset's 3D accelerometer, so the `ACCX`, `ACCY`, `ACCZ` and `ACCT` channels streamed zeros. It is now on at 30 Hz by default, the maximum documented by the DSI API.
+- **Sampling rate setting.** The EEG sampling rate can be set. The GUI defaults to **600 Hz**.
+- **New GUI controls:** a **Sampling Rate (Hz)** field (empty means 600) and an **On-board accelerometer enabled** checkbox (checked by default). Both are locked while streaming.
+- **New command-line options:** `--sample-rate` and `--accel-rate`. See [Command-line options](#command-line-options).
 
-- ```dsi2lsl.exe:``` A command-line application that runs in the terminal.
-- ```dsi2lslGUI.exe:``` The graphical user interface (GUI) application.
-### Requirements
-Before you can configure the build, you must download the necessary files and install the required software depencdencies on your system.
+> [!NOTE]
+> Both features must be unlocked on your headset by Wearable Sensing: **Variable Acquisition Rate** for rates other than 300 Hz, and **Accelerometer**. If a feature is locked, the program prints a warning and keeps streaming. It stays at 300 Hz, or the accelerometer channels stay at zero. The console always prints what the headset actually reports:
+> ```
+> Sampling rate: requested 600 Hz, headset reports 600.0 Hz
+> Accelerometer rate: requested 30 Hz, headset reports 30.0 Hz
+> ```
 
-#### 📥Required Downloads 
-Download the following packages and place them in a single parent folder for easy access:
+The accelerometer updates at up to 30 Hz but is sent on every EEG sample, so each value repeats until the next reading arrives. Expect a "staircase" signal in the recording. The LSL metadata labels every channel as type `EEG` in microvolts, including the accelerometer channels.
 
-- [App-WearableSensing (LSL Plugin)](https://github.com/labstreaminglayer/App-WearableSensing):
-The source code of the plugin itself. Download the repositroy as a zip file and extract it into your designated folder.
-- [DSI API](https://wearablesensing.com/files/DSI-API_Current.zip): The current official API from Wearable Sensing
-- [LSL Library (v1.16.2)](https://github.com/sccn/liblsl/releases): The latest version of Lab Streaming Layer.
+## Requirements
 
-#### 🛠️System Dependencies 
-Ensure the following software is installed on your computer.
-- [Qt5 Framework](https://www.qt.io/download-dev): The framework used for the application's graphical user interface (GUI). This guide was written using Qt 5.15.2.
-- [Visual Studio 2022 Community Edition](https://visualstudio.microsoft.com/downloads/): Provides the C/C++ compiler (MSVC) needed to build the code. During installation, select the "Desktop development with C++" workload.
-- [CMake's Official Website](https://cmake.org/download/): The tool used to generate the projecet build files. CMake is included with the Visual Studio workload mentioned above, so this download is not necessary.
+| What | Where to get it |
+|---|---|
+| Visual Studio 2022 (Community is fine) with the **Desktop development with C++** workload | https://visualstudio.microsoft.com/downloads/ (includes CMake) |
+| Qt 5.15.2 with the **MSVC 2019 64-bit** component | https://www.qt.io/download-dev |
+| liblsl 1.16.2, **Win_amd64** build | https://github.com/sccn/liblsl/releases |
+| DSI API v1.18.2 | https://wearablesensing.com/files/DSI-API_Current.zip |
+| Git for Windows | https://git-scm.com/download/win |
 
-### Building the Project
-There are two main steps to building the executables: Configuration, where CMake finds your tools and dependencies, and Build, where it compiles the code.
+Everything must be **64-bit**. Mixing in 32-bit pieces causes error `0xc000007b` at startup.
 
-#### Initial File Setup
-Before opening the project in VS Code, you must adjust the folder structure.
+## Build
 
-After following the initial setup open your main project folder (e.g., ```lsl-wearablesensing```) in Visual Studio Code. Your project structure should look like this.
+Run every command in **x64 Native Tools Command Prompt for VS 2022**, from the Start menu.
 
-``` 
-lsl-wearablesensing
-    |--- App-WearableSensing
-        |--- .vscode/settings.json
-        |--- CLI
-        |--- GUI
-        |--- DSI-API
-        |--- LSL Library
-        |--- CMakeLists.txt
+### 1. Check the tools
+
+```bat
+git --version
+cmake --version
+cl
 ```
 
-Edit Project Names/Path: Inside ```CMakeLists.txt```, take a look at lines 24-28. Since the dependencies you download might be earlier or later versions ensure the naming is correct. 
+`cl` should print `Microsoft (R) C/C++ Optimizing Compiler ... for x64`.
 
-#### CMake Configuration
-You need to tell CMake where to find the LSL and Qt5 libraries you downloaded. In VS Code, the easiest way to do this is by creating a workspace settings file.
+### 2. Clone
 
-1. Create a folder named .vscode in the root of your project folder if it doesn't already exist.
-
-2. Inside the .vscode folder, create a new file named settings.json.
-
-3. Copy and paste the following configuration into your settings.json file (Remember that the path to these folders is different from user to user):
-
-
-```settings.json
-{
-    "cmake.configureArgs": [
-        "-DLSL_DIR=C:\\Users\\Name\\Documents\\lsl-wearablesensing\\LSL Library\\lib\\cmake\\LSL",
-        "-DQt5_DIR=C:/Qt5/5.15.2/msvc2019_64/lib/cmake/Qt5"
-    ]
-}
+```bat
+cd %USERPROFILE%\Documents
+git clone https://github.com/childmindresearch/mobi-dsi2lsl.git
+cd mobi-dsi2lsl
 ```
 
-* Note Qt5 can also be named Qt, it depends on what you named the folder during your Qt installation. 
+### 3. Add the DSI API
 
-#### Select the Compiler (Kit) 🧰
-Now, you'll tell CMake which compiler to use.
+The API folder is not in the repository, so add it after every fresh clone. From the repository root:
 
-1. Open the VS Code Command Palette by pressing ```Ctrl+Shift+P```.
-
-2. Type and select ```>CMake: Select a Kit```.
-
-3. Choose the 64-bit compiler that matches your Visual Studio installation. It will typically be listed as ```Visual Studio Community 2022 release - amd64```.
-
-#### Select the Build Variant ⚙️
-Next, set the build type to Release. This is important for creating the final two executables.
-
-1. Open the Command Palette ```(Ctrl+Shift+P)```.
-
-2. Type and select ```>CMake: Select Variant```.
-
-3. Choose ```Release``` from the options.
-
-#### Run the Configuration Step ▶️ (CMake Cofigure)
-With the kit and variant selected, you can now generate the project build files.
-
-1. Open the Command Palette ```(Ctrl+Shift+P)```.
-
-2. Type and select ```>CMake: Configure```.
-
-3. If your configuration was successful, the terminal should output something similar to ```Build file shave been written to: build```
-
-#### Build the Project 🚀 (CMake Build)
-With the kit and variant selected, you can now generate the project build files.
-
-1. Open the Command Palette ```(Ctrl+Shift+P)```.
-
-2. Type and select ```>CMake: Build```.
-
-3. This will compile the project. Once it has finished you fill find ```dsi2lsl.exe``` and ```dsi2lslGUI.exe``` inside the ```build/Release``` folder.
-
-## Running the GUI Application
-The command-line ```dsi2lsl.exe``` can be run directly from the terminal. However, ```dsi2lslGUI.exe``` requires additional files to be present in the same directory before it will open.
-
-The inside of the ```lsl-wearablesensing/build/Release``` should currently look like this.
-```
-dsi2lsl.exe
-dsi2lslGUI.exe
+```bat
+curl -L -o DSI-API.zip https://wearablesensing.com/files/DSI-API_Current.zip
+tar -xf DSI-API.zip
+dir DSI_API_v1.18.2_04102023
 ```
 
-#### A Tip for Finding Files
-A useful search utility can make this process much easier. This guide used the [Everything search tool](https://www.voidtools.com/) to instantly locate the neccessary files.
+The folder should contain `DSI.h`, `DSI_API_Loader.c` and `libDSI-Windows-x86_64.dll`. If the zip has a newer version with a different folder name, update the `DSI-API` path in [CMakeLists.txt](CMakeLists.txt).
 
-#### Gathering the Dependency Files
-You need to copy specific files from the Qt, DSI, and LSL folders into your project's ```build\Release``` directory. It's critical to choose the files that match the compiler you used for the build. For this guide, we used the ```64-bit MSVC 2019 compiler```, so all the file paths will contain ```msvc2019_64```.
+### 4. Find Qt and liblsl
 
-(```Qt5Core.dll, Qt5Gui.dll, Qt5Widgets.dll, qwindows.dll```) will be located in your Qt installation directory.
-```
-Qt5\5.15.2\msvc2019_64\bin\Qt5Core.dll
-Qt5\5.15.2\msvc2019_64\bin\Qt5Gui.dll
-Qt5\5.15.2\msvc2019_64\bin\Qt5Widgets.dll
-Qt5\5.15.2\msvc2019_64\plugins\platforms\qwindows.dll
+```bat
+where /r C:\ Qt5Config.cmake
+where /r %USERPROFILE% LSLConfig.cmake
+where /r %USERPROFILE% lsl.dll
 ```
 
-(```libDSI-Windows-x86_64.dll```) will be located in the DSI API folder. 
-> [!IMPORTANT]
-> You will need to rename the file ```libDSI-Windows-x86_64.dll``` to ```libDSI.dll```.
+- **Qt:** use the result that contains `msvc2019_64`, not `mingw`, e.g. `C:\Qt\5.15.2\msvc2019_64\lib\cmake\Qt5`.
+- **liblsl:** e.g. `...\liblsl-1.16.2-Win_amd64\lib\cmake\LSL` and `...\liblsl-1.16.2-Win_amd64\bin\lsl.dll`.
+- **Nothing found for liblsl:** search `C:\` instead of `%USERPROFILE%`.
 
-(```lsl.dll```) will be located in the LSL Library folder.
+### 5. Configure and build
+
+Replace the paths with what you found in step 4:
+
+```bat
+set LSLCFG=C:\path\to\liblsl-1.16.2-Win_amd64\lib\cmake\LSL
+set QTCFG=C:\Qt\5.15.2\msvc2019_64\lib\cmake\Qt5
+set LSLDLL=C:\path\to\liblsl-1.16.2-Win_amd64\bin\lsl.dll
+set QTBIN=C:\Qt\5.15.2\msvc2019_64\bin
+
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DLSL_DIR="%LSLCFG%" -DQt5_DIR="%QTCFG%"
+cmake --build build --config Release
 ```
-DSI_API_v1.18.2_04102023\libDSI.dll
-liblsl-1.16.2-Win_amd64\bin\lsl.dll
+
+This produces `build\Release\dsi2lsl.exe` and `build\Release\dsi2lslGUI.exe`.
+
+### 6. Copy the DLLs
+
+```bat
+cd build\Release
+"%QTBIN%\windeployqt.exe" dsi2lslGUI.exe
+copy "%LSLDLL%" .
+copy "..\..\DSI_API_v1.18.2_04102023\libDSI-Windows-x86_64.dll" libDSI.dll
 ```
-Copy and paste the dependency files from their respective downloaded folders to the ```Release``` folder. 
-#### Final Folder Structure
-After copying all the files, your ```build/Release``` directory should look as followed:
+
+The DSI DLL **must** be renamed to `libDSI.dll`. `build\Release` should now contain:
+
 ```
-platforms
-    |--- qwindows.dll
+platforms\qwindows.dll
 dsi2lsl.exe
 dsi2lslGUI.exe
 libDSI.dll
@@ -154,16 +121,67 @@ Qt5Core.dll
 Qt5Gui.dll
 Qt5Widgets.dll
 ```
-With this setup in place, your now ready to launch the ```dsi2lslGUI.exe```.
 
-## Alternative: Build using bat
+To run the programs on another computer, copy this whole folder.
 
-Open the ```build-mingw.bat``` and change the paths according to your file structure. 
+## Usage
 
-Run the following code in the terminal
+### GUI
 
+Run `dsi2lslGUI.exe`. Fill in the fields, then click **Start**.
+
+| Field | Meaning |
+|---|---|
+| Port | Headset COM port, e.g. `COM4`. Check Device Manager or the Bluetooth settings. |
+| LSL Stream Name | Name of the LSL stream (default `WS-default`). |
+| Montage | Comma-separated channel list, or `(use default)`. |
+| Reference | Reference sensor, or `(use default)`. |
+| Sampling Rate (Hz) | EEG rate. Empty means 600. |
+| On-board accelerometer enabled | Turns the accelerometer on (30 Hz) or off. |
+| Impedance / Reset | Impedance driver on/off, and reset. |
+
+### Command line
+
+```bat
+dsi2lsl.exe --port=COM4 --sample-rate=600
 ```
-.\build-mingw.bat
-```
 
-This will create a ```mingwbuild``` folder with the executable and dependencies. 
+Press Ctrl+C to stop. While it runs, type one of these commands and press Enter:
+
+- `checkZOn`: turn the impedance driver on.
+- `checkZOff`: turn the impedance driver off.
+- `resetZ`: run an analog reset.
+
+#### Command-line options
+
+| Option | Default | Description |
+|---|---|---|
+| `--port` | `DSISerialPort` env var | Serial port, e.g. `COM4`. |
+| `--montage` | headset default | Comma-separated channel list, e.g. `F3,F4,C3,C4,ACCX,ACCY,ACCZ`. |
+| `--reference` | headset default | Reference sensor. |
+| `--sample-rate` | headset's current rate (300) | EEG sampling rate in Hz. Needs Variable Acquisition Rate unlocked. |
+| `--accel-rate` | `30` | Accelerometer rate in Hz; `0` turns it off. Needs Accelerometer unlocked. |
+| `--lsl-stream-name` | `WS-default` | LSL stream name. |
+| `--verbosity` | `2` | Amount of messages from the headset. |
+| `--help` | | Show help. |
+
+If the accelerometer channels are missing from the stream, add `ACCX,ACCY,ACCZ` to the montage.
+
+## Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `Could not find LSL` / `Could not find Qt5` during configure | `LSLCFG` or `QTCFG` must be the folder that directly contains `LSLConfig.cmake` or `Qt5Config.cmake`. |
+| `failed to load dynamic library "libDSI.dll"` | Copy and rename the DSI DLL into `build\Release` (step 6). |
+| `lsl.dll was not found` | Copy `lsl.dll` into `build\Release`. |
+| GUI says the `windows` platform plugin is missing | Run `windeployqt` again (step 6). |
+| Error `0xc000007b` | A 32-bit DLL got mixed in. Use the `Win_amd64` liblsl, the `x86_64` DSI DLL and `msvc2019_64` Qt. |
+| Rate reports 300 Hz / accelerometer warning | The feature is locked on the headset. Contact Wearable Sensing. |
+
+## Alternative: MinGW build
+
+`build-mingw.bat` builds both programs with MinGW-w64 and a MinGW build of Qt 5. Edit the `YOUR_PATH_...` placeholders in the script, then run `.\build-mingw.bat`. The output goes to `mingwbuild\`.
+
+## Support
+
+For issues with this fork, open an issue at https://github.com/childmindresearch/mobi-dsi2lsl. For issues with the original program or the DSI API, contact support@wearablesensing.com.
