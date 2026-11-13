@@ -27,7 +27,7 @@ gcc CLI\dsi2lsl.c ^
     DSI_API_v1.18.2_04102023\DSI_API_Loader.c ^
     -I DSI_API_v1.18.2_04102023 ^
     -I %LSL_INC% ^
-    -L %LSL_LIB% -llsl ^
+    -L %LSL_LIB% -llsl -lwinmm ^
     -o %OUT%\dsi2lsl.exe
 
 if %ERRORLEVEL% neq 0 (

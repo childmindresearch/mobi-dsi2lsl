@@ -212,6 +212,13 @@ void MainWindow::writeToConsole()
 void MainWindow::on_buttonBox_rejected()
 {
     if(this->streamer != NULL){
+        /* Ask dsi2lsl to shut down cleanly so it tells the headset to stop
+         * streaming; only force-kill if it doesn't exit in time. */
+        if (this->streamer->state() == QProcess::Running) {
+            this->streamer->write("quit\n");
+            if (!this->streamer->waitForFinished(5000))
+                this->streamer->kill();
+        }
         this->streamer->close();
         this->ui->console->append("Streamer will exit now. Good bye!");
         this->killTimer(this->timerId);

@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <windows.h>
+#include <mmsystem.h> /* timeBeginPeriod / timeEndPeriod (link with winmm) */
 
 
 /* Helper functions and macros that will be defined down below. */
@@ -77,6 +78,14 @@ DWORD WINAPI DSI_Processing_Thread(LPVOID lpParam) {
     DSI_Headset h = (DSI_Headset)lpParam;
     fprintf(stdout, "DSI processing thread started.\n");
 
+    /*
+     * By default Windows rounds Sleep() up to the ~15.6 ms system tick, so the
+     * previous Sleep(2) actually paused ~15 ms between reads. At 600 Hz that lets
+     * the serial buffer back up. Request 1 ms timer resolution for the lifetime
+     * of this thread so Sleep(1) really is ~1 ms.
+     */
+    timeBeginPeriod(1);
+
     while (KeepRunning == 1) {
         /* Only call Idle if the main thread hasn't paused us. */
         if (!DSI_Thread_Paused) {
@@ -86,9 +95,11 @@ DWORD WINAPI DSI_Processing_Thread(LPVOID lpParam) {
                 KeepRunning = 0; /* Signal main thread to exit. */
             }
         }
-        /* Sleep for a tiny amount of time to prevent CPU overload. */
-        Sleep(BUFFER_SECONDS);
+        /* Yield ~1 ms so we don't spin a CPU core at 100%. */
+        Sleep(1);
     }
+
+    timeEndPeriod(1);
 
     fprintf(stdout, "DSI processing thread finished.\n");
     return 0;
@@ -128,6 +139,9 @@ DWORD WINAPI ImpedanceThread(LPVOID lpParam) {
           fprintf(stderr, "Error in DSI processing thread. Exiting.\n");
           KeepRunning = 0; /* Signal main thread to exit. */
       }
+      /* Commands only arrive from the keyboard/GUI, so polling every 20 ms is
+       * plenty and keeps this thread from spinning a CPU core at 100%. */
+      Sleep(20);
     }
     
     fprintf(stdout, "DSI impedance thread finished.\n");
@@ -241,6 +255,12 @@ int main( int argc, const char * argv[] )
     else if (strcmp(command, "resetZ") == 0) {
         /* Reset impedance */
         startAnalogReset( h ); CHECK
+    }
+    else if (strcmp(command, "quit") == 0) {
+        /* Clean shutdown (sent by the GUI's Stop button): falls through to
+         * Finish(), which tells the headset to stop streaming. */
+        KeepRunning = 0;
+        break;
     }
     Sleep(BUFFER_SECONDS);
   }
@@ -379,21 +399,24 @@ int StartUp( int argc, const char * argv[], DSI_Headset * headsetOut, int * help
   }
 
   /*
-   * Enable the 3D accelerometer. Its rate defaults to 0 (off), in which case the
-   * ACCX/ACCY/ACCZ/ACCT channels just stream zeros. Must be set before
+   * Set the 3D accelerometer rate (0 = off). When off, the ACCX/ACCY/ACCZ/ACCT
+   * channels just stream zeros. The headset REMEMBERS this setting between
+   * connections, so we always apply the requested value (including 0) rather
+   * than relying on the headset's current state. Must be set before
    * DSI_Headset_ChooseChannels (same order as AccelDemo in the DSI API demo.c).
    * The DSI API docs state the supported range is up to 30 Hz.
    */
-  if( accelRate > 0 ){
-    if( DSI_Headset_GetFeatureAvailability( h, "Accelerometer" ) == 1 ){
+  if( accelRate < 0 ) accelRate = 0;
+  if( DSI_Headset_GetFeatureAvailability( h, "Accelerometer" ) == 1 ){
+    if( (int)( DSI_Headset_GetAccelerometerRate( h ) + 0.5 ) != accelRate ){
       DSI_Headset_SetAccelerometerRate( h, (unsigned int) accelRate ); CHECK
-      fprintf( stderr, "Accelerometer rate: requested %d Hz, headset reports %.1f Hz\n",
-               accelRate, DSI_Headset_GetAccelerometerRate( h ) ); CHECK
-    } else {
-      fprintf( stderr, "WARNING: headset does not report the \"Accelerometer\" feature as available; ACC channels will be zero.\n" );
     }
-    CHECK
+    fprintf( stderr, "Accelerometer rate: requested %d Hz, headset reports %.1f Hz\n",
+             accelRate, DSI_Headset_GetAccelerometerRate( h ) ); CHECK
+  } else if( accelRate > 0 ){
+    fprintf( stderr, "WARNING: headset does not report the \"Accelerometer\" feature as available; ACC channels will be zero.\n" );
   }
+  CHECK
 
   /*
    * Sets up the montage according to strings supplied in the --montage and

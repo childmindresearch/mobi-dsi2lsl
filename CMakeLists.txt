@@ -60,6 +60,7 @@ target_link_libraries(dsi2lsl
 	PRIVATE
 	LSL::lsl 
 	Threads::Threads
+	winmm
 )
 target_include_directories(dsi2lsl 
 	PRIVATE 
